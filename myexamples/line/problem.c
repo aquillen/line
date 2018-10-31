@@ -109,13 +109,15 @@ int main(int argc, char* argv[]){
      
 
 /// end of things to set /////////////////////////
-        gen_particles( r, NN);
+        gen_particles( r, NN); // generate some particles
 
 
         r->dt=dt;            // set integration timestep
 	const double boxsize = 1.1*rcube;    // display window
 	reb_configure_box(r,boxsize,1,2,1);
 // viewer +x to right, +y to up, z back and forth along line of sight
+// I have put all motion in the y direction to be consistent with these
+// orientations
 
 //   FILE *fpr;
 //   char fname[200];
@@ -127,19 +129,18 @@ int main(int argc, char* argv[]){
    p_particle = NN/2;  // storing info at every timestep on this particle
    sprintf(junks,"_p%d.txt",p_particle);
    strcat(pfilename,junks);
-   printf("%s",pfilename);
+   // printf("%s",pfilename);
 
+   r->heartbeat = heartbeat; // tell rebound about the hearbeat routine
 
-
-   r->heartbeat = heartbeat;
-
-   if (tmax ==0.0) // start the integration!!!!
+   if (tmax ==0.0) // start the integration!!!! (and display)
       reb_integrate(r, INFINITY);
    else
       reb_integrate(r, tmax);
 }
 
 
+// this is called every timestep while the integration is running
 void heartbeat(struct reb_simulation* const r){
     struct reb_particle* particles = r->particles;
         static int index = 0;
@@ -147,6 +148,7 @@ void heartbeat(struct reb_simulation* const r){
         if (index==0){
             fpp = fopen(pfilename,"w"); // open it once!
         }
+
 	if (reb_output_check(r,10.0*r->dt)){
 		reb_output_timing(r,0); // print time of simulation run on screen
 	}
@@ -160,7 +162,7 @@ void heartbeat(struct reb_simulation* const r){
             index++;
         }
 
-
+        // output a lot of information on one particle in the middle
         if (r->t - t_damp >0){
             if (reb_output_check(r,tp_print)) {
               fprintf(fpp,"%.6e ",r->t-t_damp);
@@ -172,21 +174,21 @@ void heartbeat(struct reb_simulation* const r){
         }
 
 
-    pulse_base(r);
+    pulse_base(r); // boundary condition
 
 
 }
 
 
-
+// generate particles in a line
 void gen_particles(struct reb_simulation* const r, int NN){
-    struct reb_particle pt;
-    double dz = 1.0/NN;
-    pt.m   = dz;
-    pt.x   = 0.0; pt.y   = 0.0; pt.z   = 0.0; 
-    pt.vx  = 0.0; pt.vy  = 0.0; pt.vz  = 0.0; 
-    pt.ax  = 0.0; pt.ay  = 0.0; pt.az  = 0.0; 
-    pt.r   = dz/2;
+    struct reb_particle pt;  // particle structure
+    double dz = 1.0/NN; // spacing
+    pt.m   = dz; // mass, sums to 1
+    pt.x   = 0.0; pt.y   = 0.0; pt.z   = 0.0;  // position
+    pt.vx  = 0.0; pt.vy  = 0.0; pt.vz  = 0.0;  // velocity
+    pt.ax  = 0.0; pt.ay  = 0.0; pt.az  = 0.0;  // acceleration
+    pt.r   = dz/2; // display radius
     for(int i=0;i < NN; i++){
        double z0 = dz*i;
        pt.y = z0+py0;   // up is y!
@@ -199,7 +201,7 @@ void gen_particles(struct reb_simulation* const r, int NN){
 
 
 // needs L_overlap and k_spring and alpha and G_grav
-// interaction forces
+// aply particle interaction forces
 void sphere_forces(struct reb_simulation* const r){
     struct reb_particle* particles = r->particles;
     for(int i = 0;i< r->N-1;i++){
@@ -216,9 +218,9 @@ void sphere_forces(struct reb_simulation* const r){
         
     }
     for(int i = 0;i< r->N;i++){
-         particles[i].ay -=  G_grav; 
+         particles[i].ay -=  G_grav;  // gravity acceleration
     }
-    // particles[0].ay = 0.0; // don't let this guy move?
+    particles[0].ay = 0.0; // don't let this guy move?
 }
 
 
@@ -226,14 +228,15 @@ void sphere_forces(struct reb_simulation* const r){
 // and fix it if outside of pulse
 void pulse_base(struct reb_simulation* const r){
     struct reb_particle* particles = r->particles;
-
-    particles[0].y = py0;   // prevent first particle from going too low
-    particles[0].vy = 0.0; 
-    particles[0].ay = 0.0; 
+    
+    if (r->t < t_damp){
+       particles[0].y = py0;   // prevent first particle from going too low
+       particles[0].vy = 0.0; 
+       particles[0].ay = 0.0; 
+       return;
+    }
 
     double dtau = r->t - t_damp;
-    if (dtau <0) return;   // if damping not done don't do a pulse  
-
     double freq = 2.0*M_PI/tau_pulse;
 
 // apply a pulse then wait then apply another pulse etc
@@ -243,10 +246,18 @@ void pulse_base(struct reb_simulation* const r){
     if (dtau < tau_pulse){
        double bpos = A_pulse*(1.0 - cos(dtau*freq))/2.0;  // goes from 0 to Apulse at dtau=tau/2
        double bposdot = A_pulse*freq*sin(dtau*freq)/2.0;  
+       // double bposddot = A_pulse*freq*freq*cos(dtau*freq)/2.0;  
        particles[0].y  = py0+bpos; 
        particles[0].vy = bposdot; 
+       // particles[0].ay = bposddot; 
+       particles[0].ay = 0.0; 
+       return;
     }
-
+    if (particles[0].y < py0){   // prevent first particle from going too low
+       particles[0].y = py0;   
+       particles[0].vy = 0.0; 
+       particles[0].ay = 0.0; 
+    }
 
 }
 
