@@ -1,0 +1,15 @@
+b1        %s   froot      # filename for outputs
+1e-6      %lf  dt         # timestep
+0         %lf  tmax       # max time for integration
+1e6       %lf  t_print    # time interval for outputs
+0.01      %lf  tp_print   # time interval for mid particle time prints
+50        %d   NN         # number of particles
+1e5       %lf  k_spring   # spring constant
+1.0       %lf  G_grav     # gravity downward
+1e2       %lf  alpha_run  # damping later on
+1e4       %lf  alpha_damp # damping early on
+ 3.0      %lf  t_damp     # time to damp early
+-1.7      %lf  py0        # lower position of particle 0
+0.30      %lf  A_pulse    # amplitude of pulse
+1.0       %lf  tau_pulse  # length of pulse
+4         %lf  tau_wait   # wait and then do another pulse!
